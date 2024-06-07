@@ -14,7 +14,7 @@ mod switch;
 #[allow(clippy::module_inception)]
 mod task;
 
-use crate::config::MAX_APP_NUM;
+use crate::config::{MAX_APP_NUM, MAX_SYSCALL_NUM};
 use crate::loader::{get_num_app, init_app_cx};
 use crate::sync::UPSafeCell;
 use lazy_static::*;
@@ -22,6 +22,8 @@ use switch::__switch;
 pub use task::{TaskControlBlock, TaskStatus};
 
 pub use context::TaskContext;
+
+use crate::timer::get_time_ms;
 
 /// The task manager, where all the tasks are managed.
 ///
@@ -54,6 +56,8 @@ lazy_static! {
         let mut tasks = [TaskControlBlock {
             task_cx: TaskContext::zero_init(),
             task_status: TaskStatus::UnInit,
+            start_time: 0,
+            syscall_times: [0;MAX_SYSCALL_NUM],
         }; MAX_APP_NUM];
         for (i, task) in tasks.iter_mut().enumerate() {
             task.task_cx = TaskContext::goto_restore(init_app_cx(i));
@@ -135,6 +139,30 @@ impl TaskManager {
             panic!("All applications completed!");
         }
     }
+
+    fn increase_current_syscall_count(&self, syscall_id: usize) {
+        let mut inner = self.inner.exclusive_access();
+        let current = inner.current_task;
+        if inner.tasks[current].start_time == 0 {
+            inner.tasks[current].start_time = get_time_ms();
+        }
+        inner.tasks[current].syscall_times[syscall_id] += 1;
+    }
+
+    fn get_current_task_info(&self) -> (TaskStatus, [u32; 500], usize) {
+        let inner = self.inner.exclusive_access();
+        let current = inner.current_task;
+        // TaskInfo {
+        //     status: TaskStatus::Running,
+        //     syscall_times: inner.tasks[current].syscall_times,
+        //     time: inner.tasks[current].start_time,
+        // }
+        (
+            TaskStatus::Running,
+            inner.tasks[current].syscall_times,
+            inner.tasks[current].start_time,
+        )
+    }
 }
 
 /// Run the first task in task list.
@@ -168,4 +196,17 @@ pub fn suspend_current_and_run_next() {
 pub fn exit_current_and_run_next() {
     mark_current_exited();
     run_next_task();
+}
+
+/// get_current_task_info
+pub fn get_current_task_info() -> (TaskStatus, [u32; 500], usize) {
+    TASK_MANAGER.get_current_task_info()
+}
+
+/// increase_current_syscall_count
+pub fn increase_current_syscall_count(syscall_id: usize) {
+    if syscall_id >= MAX_SYSCALL_NUM {
+        return;
+    }
+    TASK_MANAGER.increase_current_syscall_count(syscall_id);
 }
