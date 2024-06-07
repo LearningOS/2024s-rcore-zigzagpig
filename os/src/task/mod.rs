@@ -160,7 +160,7 @@ impl TaskManager {
         (
             TaskStatus::Running,
             inner.tasks[current].syscall_times,
-            inner.tasks[current].start_time,
+            get_time_ms() - inner.tasks[current].start_time,
         )
     }
 }
