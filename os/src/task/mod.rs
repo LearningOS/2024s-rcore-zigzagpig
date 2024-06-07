@@ -154,6 +154,30 @@ impl TaskManager {
             panic!("All applications completed!");
         }
     }
+
+    fn increase_current_syscall_count(&self, syscall_id: usize) {
+        let mut inner = self.inner.exclusive_access();
+        let current = inner.current_task;
+        if inner.tasks[current].start_time == 0 {
+            inner.tasks[current].start_time = get_time_ms();
+        }
+        inner.tasks[current].syscall_times[syscall_id] += 1;
+    }
+
+    fn get_current_task_info(&self) -> (TaskStatus, [u32; 500], usize) {
+        let inner = self.inner.exclusive_access();
+        let current = inner.current_task;
+        // TaskInfo {
+        //     status: TaskStatus::Running,
+        //     syscall_times: inner.tasks[current].syscall_times,
+        //     time: inner.tasks[current].start_time,
+        // }
+        (
+            TaskStatus::Running,
+            inner.tasks[current].syscall_times,
+            get_time_ms() - inner.tasks[current].start_time,
+        )
+    }
 }
 
 /// Run the first task in task list.
