@@ -56,6 +56,7 @@ lazy_static! {
         println!("num_app = {}", num_app);
         let mut tasks: Vec<TaskControlBlock> = Vec::new();
         for i in 0..num_app {
+            // 现在开启了页表访存了吗?TODO
             tasks.push(TaskControlBlock::new(get_app_data(i), i));
         }
         TaskManager {

@@ -48,7 +48,9 @@ __restore:
     # switch to user space
     csrw satp, a1
     sfence.vma
+    #  a0 是TrapContext,写入sscratch寄存器
     csrw sscratch, a0
+    # 指针指向TrapContext
     mv sp, a0
     # now sp points to TrapContext in user space, start restoring based on it
     # restore sstatus/sepc

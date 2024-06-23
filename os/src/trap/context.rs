@@ -12,6 +12,7 @@ pub struct TrapContext {
     /// Supervisor Exception Program Counter
     pub sepc: usize,
     /// Token of kernel address space
+    /// Supervisor address translation and protection register satp
     pub kernel_satp: usize,
     /// Kernel stack pointer of the current application
     pub kernel_sp: usize,
@@ -34,6 +35,7 @@ impl TrapContext {
     ) -> Self {
         let mut sstatus = sstatus::read();
         // set CPU privilege to User after trapping back
+        // 这里是要改写 sstatus 吗?TODO
         sstatus.set_spp(SPP::User);
         let mut cx = Self {
             x: [0; 32],

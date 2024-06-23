@@ -7,6 +7,7 @@ use crate::mm::{
 use crate::trap::{trap_handler, TrapContext};
 
 /// The task control block (TCB) of a task.
+/// 存放应用的各种信息
 pub struct TaskControlBlock {
     /// Save task context
     pub task_cx: TaskContext,
@@ -43,12 +44,14 @@ impl TaskControlBlock {
     pub fn new(elf_data: &[u8], app_id: usize) -> Self {
         // memory_set with elf program headers/trampoline/trap context/user stack
         let (memory_set, user_sp, entry_point) = MemorySet::from_elf(elf_data);
+        // 根据trap虚拟地址查询陷入上下文的物理地址
         let trap_cx_ppn = memory_set
             .translate(VirtAddr::from(TRAP_CONTEXT_BASE).into())
             .unwrap()
             .ppn();
         let task_status = TaskStatus::Ready;
         // map a kernel-stack in kernel space
+        // 初始化 app_id 对应应用的内核栈
         let (kernel_stack_bottom, kernel_stack_top) = kernel_stack_position(app_id);
         KERNEL_SPACE.exclusive_access().insert_framed_area(
             kernel_stack_bottom.into(),

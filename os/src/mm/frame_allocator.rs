@@ -16,6 +16,7 @@ pub struct FrameTracker {
 
 impl FrameTracker {
     /// Create a new FrameTracker
+    /// 根据物理页号生成帧跟踪器,期间清零帧对应的内存空间
     pub fn new(ppn: PhysPageNum) -> Self {
         // page cleaning
         let bytes_array = ppn.get_bytes_array();
@@ -65,6 +66,8 @@ impl FrameAllocator for StackFrameAllocator {
             recycled: Vec::new(),
         }
     }
+    /// 分配物理页号,优先分配之前回收的
+    /// 所谓分配就是记录并返回地址而已,并没有额外的操作
     fn alloc(&mut self) -> Option<PhysPageNum> {
         if let Some(ppn) = self.recycled.pop() {
             Some(ppn.into())
@@ -109,6 +112,7 @@ pub fn frame_alloc() -> Option<FrameTracker> {
     FRAME_ALLOCATOR
         .exclusive_access()
         .alloc()
+        //对物理页号进行跟踪
         .map(FrameTracker::new)
 }
 

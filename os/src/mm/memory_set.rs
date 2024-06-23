@@ -36,6 +36,7 @@ lazy_static! {
 /// address space
 pub struct MemorySet {
     page_table: PageTable,
+    //各段内存信息存在 Vec 里面
     areas: Vec<MapArea>,
 }
 
@@ -63,17 +64,22 @@ impl MemorySet {
             None,
         );
     }
+    /// 根据虚拟地址范围,分配对应的物理页
     fn push(&mut self, mut map_area: MapArea, data: Option<&[u8]>) {
         map_area.map(&mut self.page_table);
         if let Some(data) = data {
+            // 复制数据到分配的页
             map_area.copy_data(&mut self.page_table, data);
         }
+        //处理完后 把段信息放进 vec 里面管理
         self.areas.push(map_area);
     }
     /// Mention that trampoline is not collected by areas.
+    /// 最后一页
     fn map_trampoline(&mut self) {
         self.page_table.map(
             VirtAddr::from(TRAMPOLINE).into(),
+            // strampoline 跳板是在编译的时候写好的
             PhysAddr::from(strampoline as usize).into(),
             PTEFlags::R | PTEFlags::X,
         );
@@ -145,6 +151,7 @@ impl MemorySet {
     }
     /// Include sections in elf and trampoline and TrapContext and user stack,
     /// also returns user_sp_base and entry point.
+    /// 从 elf 信息创建地址空间
     pub fn from_elf(elf_data: &[u8]) -> (Self, usize, usize) {
         let mut memory_set = Self::new_bare();
         // map trampoline
@@ -174,6 +181,7 @@ impl MemorySet {
                 }
                 let map_area = MapArea::new(start_va, end_va, MapType::Framed, map_perm);
                 max_end_vpn = map_area.vpn_range.get_end();
+                // 添加一个段
                 memory_set.push(
                     map_area,
                     Some(&elf.input[ph.offset() as usize..(ph.offset() + ph.file_size()) as usize]),
@@ -182,9 +190,11 @@ impl MemorySet {
         }
         // map user stack with U flags
         let max_end_va: VirtAddr = max_end_vpn.into();
+        // 用户栈底对应虚拟地址的末尾
         let mut user_stack_bottom: usize = max_end_va.into();
-        // guard page
+        // guard page 栈底后面一页是保护页
         user_stack_bottom += PAGE_SIZE;
+        // 栈底是ELF各段的结束位置   (⊙_⊙)?
         let user_stack_top = user_stack_bottom + USER_STACK_SIZE;
         memory_set.push(
             MapArea::new(
@@ -215,6 +225,7 @@ impl MemorySet {
             ),
             None,
         );
+        // 后面不加跳板是因为,一开始就加了跳板
         (
             memory_set,
             user_stack_top,
@@ -293,6 +304,7 @@ impl MapArea {
             MapType::Identical => {
                 ppn = PhysPageNum(vpn.0);
             }
+            // 分配物理页号,并与虚拟页号匹配
             MapType::Framed => {
                 let frame = frame_alloc().unwrap();
                 ppn = frame.ppn;
@@ -309,6 +321,7 @@ impl MapArea {
         }
         page_table.unmap(vpn);
     }
+    /// 将页表的所有虚拟页号,分配物理页号,并匹配
     pub fn map(&mut self, page_table: &mut PageTable) {
         for vpn in self.vpn_range {
             self.map_one(page_table, vpn);
@@ -380,6 +393,40 @@ bitflags! {
 }
 
 /// Return (bottom, top) of a kernel stack in kernel space.
+/// 每个应用给两页空间 KERNEL_STACK_SIZE = 8192
+/// 这里是跳板
+///    top: fffffffffffff000
+/// bottom: ffffffffffffd000 应用 0  d000 - f000
+/// top: ffffffffffffc000    中间 c000 是空的
+/// bottom: ffffffffffffa000 应用 1  a000 - b000  
+/// top: ffffffffffff9000
+/// bottom: ffffffffffff7000   
+/// top: ffffffffffff6000
+/// bottom: ffffffffffff4000   
+/// top: ffffffffffff3000
+/// bottom: ffffffffffff1000   
+/// top: ffffffffffff0000
+/// bottom: fffffffffffee000   
+/// top: fffffffffffed000
+/// bottom: fffffffffffeb000   
+/// top: fffffffffffea000
+/// bottom: fffffffffffe8000   
+/// top: fffffffffffe7000
+/// bottom: fffffffffffe5000   
+/// top: fffffffffffe4000
+/// bottom: fffffffffffe2000   
+/// top: fffffffffffe1000
+/// bottom: fffffffffffdf000   
+/// top: fffffffffffde000
+/// bottom: fffffffffffdc000   
+/// top: fffffffffffdb000
+/// bottom: fffffffffffd9000   
+/// top: fffffffffffd8000
+/// bottom: fffffffffffd6000   
+/// top: fffffffffffd5000
+/// bottom: fffffffffffd3000   
+/// top: fffffffffffd2000
+/// bottom: fffffffffffd0000  
 pub fn kernel_stack_position(app_id: usize) -> (usize, usize) {
     let top = TRAMPOLINE - app_id * (KERNEL_STACK_SIZE + PAGE_SIZE);
     let bottom = top - KERNEL_STACK_SIZE;
