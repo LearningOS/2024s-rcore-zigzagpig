@@ -106,6 +106,8 @@ impl PageTable {
     fn find_pte_create(&mut self, vpn: VirtPageNum) -> Option<&mut PageTableEntry> {
         // 获取虚拟页号三级页表的三部分
         // 虚拟地址只是用来查表的
+        // println!("map vpn {}", vpn.0);
+        // println!("PageTable {:?}", self.frames);
         let idxs = vpn.indexes();
         let mut ppn = self.root_ppn;
         let mut result: Option<&mut PageTableEntry> = None;
@@ -149,7 +151,9 @@ impl PageTable {
     pub fn map(&mut self, vpn: VirtPageNum, ppn: PhysPageNum, flags: PTEFlags) {
         // 查找页表条目
         let pte = self.find_pte_create(vpn).unwrap();
+        println!("vpn:{}--------", vpn.0);
         // 在这个项目中肯定不会发生 !pte.is_valid() ?
+        // 然而第一个出现问题就是在这里!!!
         assert!(!pte.is_valid(), "vpn {:?} is mapped before mapping", vpn);
         // 让查到的页表条目,它的值改成要绑定的物理页数
         *pte = PageTableEntry::new(ppn, flags | PTEFlags::V);

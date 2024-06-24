@@ -66,6 +66,8 @@ impl MemorySet {
     }
     /// 根据虚拟地址范围,分配对应的物理页
     fn push(&mut self, mut map_area: MapArea, data: Option<&[u8]>) {
+        // println!("map_area:{:?}", map_area.vpn_range.get_start());
+        // println!("map_area:{:?}", map_area.vpn_range.get_end());
         map_area.map(&mut self.page_table);
         if let Some(data) = data {
             // 复制数据到分配的页
@@ -98,15 +100,17 @@ impl MemorySet {
             sbss_with_stack as usize, ebss as usize
         );
         info!("mapping .text section");
-        memory_set.push(
-            MapArea::new(
-                (stext as usize).into(),
-                (etext as usize).into(),
-                MapType::Identical,
-                MapPermission::R | MapPermission::X,
-            ),
-            None,
+        let text_map_area = MapArea::new(
+            (stext as usize).into(),
+            (etext as usize).into(),
+            MapType::Identical,
+            MapPermission::R | MapPermission::X,
         );
+        println!("text_map_area={:?}", text_map_area.vpn_range.get_start());
+        println!("text_map_area={:?}", text_map_area.vpn_range.get_end());
+        // println!("text_map_area={}",text_map_area.vpn_range.get_start());
+        // println!("text_map_area={}",text_map_area.vpn_range.get_start());
+        memory_set.push(text_map_area, None);
         info!("mapping .rodata section");
         memory_set.push(
             MapArea::new(
@@ -234,7 +238,9 @@ impl MemorySet {
     }
     /// Change page table by writing satp CSR Register.
     pub fn activate(&self) {
+        println!("before let satp = self.page_table.token();");
         let satp = self.page_table.token();
+        println!("after let satp = self.page_table.token();");
         unsafe {
             satp::write(satp);
             asm!("sfence.vma");
@@ -292,6 +298,8 @@ impl MapArea {
     ) -> Self {
         let start_vpn: VirtPageNum = start_va.floor();
         let end_vpn: VirtPageNum = end_va.ceil();
+        println!("start_vpn={}", start_vpn.0);
+        println!("end_vpn={}", end_vpn.0);
         Self {
             vpn_range: VPNRange::new(start_vpn, end_vpn),
             data_frames: BTreeMap::new(),
@@ -301,6 +309,7 @@ impl MapArea {
     }
     pub fn map_one(&mut self, page_table: &mut PageTable, vpn: VirtPageNum) {
         let ppn: PhysPageNum;
+        println!("MapType={:?}", self.map_type);
         match self.map_type {
             MapType::Identical => {
                 ppn = PhysPageNum(vpn.0);
@@ -312,8 +321,10 @@ impl MapArea {
                 self.data_frames.insert(vpn, frame);
             }
         }
+        // println!("ppn={}", ppn.0);
         let pte_flags = PTEFlags::from_bits(self.map_perm.bits).unwrap();
         page_table.map(vpn, ppn, pte_flags);
+        // println!("after map");
     }
     #[allow(unused)]
     pub fn unmap_one(&mut self, page_table: &mut PageTable, vpn: VirtPageNum) {
@@ -325,6 +336,7 @@ impl MapArea {
     /// 将页表的所有虚拟页号,分配物理页号,并匹配
     pub fn map(&mut self, page_table: &mut PageTable) {
         for vpn in self.vpn_range {
+            // println!("vpn:{}", vpn.0);
             self.map_one(page_table, vpn);
         }
     }

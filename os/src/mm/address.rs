@@ -71,6 +71,11 @@ impl From<usize> for VirtAddr {
 }
 impl From<usize> for VirtPageNum {
     fn from(v: usize) -> Self {
+        println!(
+            "v:{};    (1 << VPN_WIDTH_SV39) - 1):{}",
+            v,
+            v & ((1 << VPN_WIDTH_SV39) - 1)
+        );
         Self(v & ((1 << VPN_WIDTH_SV39) - 1))
     }
 }
