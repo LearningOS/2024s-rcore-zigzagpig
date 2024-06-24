@@ -1,9 +1,11 @@
 //! Process management syscalls
+use core::mem::size_of;
+
 use crate::{
     config::MAX_SYSCALL_NUM,
     mm::translated_byte_buffer,
     task::{
-        change_program_brk, current_user_token, exit_current_and_run_next,
+        change_program_brk, current_user_token, exit_current_and_run_next, get_current_task_info,
         suspend_current_and_run_next, TaskStatus,
     },
     timer::get_time_us,
@@ -44,8 +46,10 @@ pub fn sys_yield() -> isize {
 /// YOUR JOB: get time with second and microsecond
 /// HINT: You might reimplement it with virtual memory management.
 /// HINT: What if [`TimeVal`] is splitted by two pages ?
-pub fn sys_get_time(_ts: *mut TimeVal, _tz: usize) -> isize {
+pub fn sys_get_time(ts: *mut TimeVal, _tz: usize) -> isize {
     trace!("kernel: sys_get_time");
+    //获取的就是多个切片的引用
+    //获取的是物理地址的引用
     let buffers =
         translated_byte_buffer(current_user_token(), ts as *const u8, size_of::<TimeVal>());
     let us = get_time_us();

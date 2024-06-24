@@ -192,7 +192,7 @@ impl MemorySet {
         let max_end_va: VirtAddr = max_end_vpn.into();
         // 用户栈底对应虚拟地址的末尾
         let mut user_stack_bottom: usize = max_end_va.into();
-        // guard page 栈底后面一页是保护页
+        // guard page 栈底往后移动一格,中间空出保护页
         user_stack_bottom += PAGE_SIZE;
         // 栈底是ELF各段的结束位置   (⊙_⊙)?
         let user_stack_top = user_stack_bottom + USER_STACK_SIZE;
@@ -275,6 +275,7 @@ impl MemorySet {
     }
 }
 /// map area structure, controls a contiguous piece of virtual memory
+/// MapArea 翻译成段比较好
 pub struct MapArea {
     vpn_range: VPNRange,
     data_frames: BTreeMap<VirtPageNum, FrameTracker>,

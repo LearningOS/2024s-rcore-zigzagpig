@@ -105,6 +105,7 @@ impl PageTable {
     ///
     fn find_pte_create(&mut self, vpn: VirtPageNum) -> Option<&mut PageTableEntry> {
         // 获取虚拟页号三级页表的三部分
+        // 虚拟地址只是用来查表的
         let idxs = vpn.indexes();
         let mut ppn = self.root_ppn;
         let mut result: Option<&mut PageTableEntry> = None;
@@ -146,8 +147,11 @@ impl PageTable {
     /// set the map between virtual page number and physical page number
     #[allow(unused)]
     pub fn map(&mut self, vpn: VirtPageNum, ppn: PhysPageNum, flags: PTEFlags) {
+        // 查找页表条目
         let pte = self.find_pte_create(vpn).unwrap();
+        // 在这个项目中肯定不会发生 !pte.is_valid() ?
         assert!(!pte.is_valid(), "vpn {:?} is mapped before mapping", vpn);
+        // 让查到的页表条目,它的值改成要绑定的物理页数
         *pte = PageTableEntry::new(ppn, flags | PTEFlags::V);
     }
     /// remove the map between virtual page number and physical page number
@@ -170,8 +174,9 @@ impl PageTable {
 
 /// Translate&Copy a ptr[u8] array with LENGTH len to a mutable u8 Vec through page table
 /// 这样翻译真的行吗?satp都没换直接获取引用
+/// 直接获取每个字节的引用,然后操作
 pub fn translated_byte_buffer(token: usize, ptr: *const u8, len: usize) -> Vec<&'static mut [u8]> {
-    //根据satp创建页表
+    //根据satp创建页表,获取页表
     let page_table = PageTable::from_token(token);
     //指针值就是个虚拟地址值
     let mut start = ptr as usize;
