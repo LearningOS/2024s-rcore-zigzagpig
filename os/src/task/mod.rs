@@ -180,6 +180,33 @@ impl TaskManager {
             get_time_ms() - inner.tasks[current].start_time,
         )
     }
+
+    fn mmap(&self, start: usize, len: usize, port: usize) -> isize {
+        let mut inner = self.inner.exclusive_access();
+        let current = inner.current_task;
+        inner.tasks[current].memory_set.mmap(start, len, port)
+
+        // let start_va: VirtAddr = start.into();
+        // if start_va.page_offset() != 0 {
+        //     panic!("start 没有按页大小对齐");
+        // }
+
+        // // 非低4位不为0
+        // if port & !0x7 != 0 {
+        //     panic!("port 其余位必须为0");
+        // }
+        // // 低4位为0
+        // if port & 0x7 = 0  {
+        //     panic!("这样的内存无意义");
+        // }
+
+        // let mut permission = MapPermission::from_bits((prot as u8) << 1).unwrap();
+        // permission.set(MapPermission::U, true);
+        // inner.tasks[current].memory_set.token()
+
+        // inner.tasks[current].memory_set.insert_framed_area(start_va, (start + len).into(), permission);
+        // 0
+    }
 }
 
 /// Run the first task in task list.
@@ -241,4 +268,9 @@ pub fn increase_current_syscall_count(syscall_id: usize) {
         return;
     }
     TASK_MANAGER.increase_current_syscall_count(syscall_id);
+}
+
+/// get_current_memory_set
+pub fn mmap(start: usize, len: usize, port: usize) -> isize {
+    TASK_MANAGER.mmap(start, len, port)
 }

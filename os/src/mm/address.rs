@@ -245,6 +245,15 @@ where
     pub fn get_end(&self) -> T {
         self.r
     }
+    // 范围是否包含v
+    // pub fn contains(&self, v: T) -> bool {
+    //     self.l <= v && self.r > v
+    // }
+
+    // 范围是否包含v
+    pub fn intersects(&self, other: &Self) -> bool {
+        !(self.l > other.r || self.r < other.l)
+    }
 }
 impl<T> IntoIterator for SimpleRange<T>
 where

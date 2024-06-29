@@ -49,6 +49,7 @@ impl PageTableEntry {
         PTEFlags::from_bits(self.bits as u8).unwrap()
     }
     /// The page pointered by page table entry is valid?
+    /// 当前标志位是合法的
     pub fn is_valid(&self) -> bool {
         (self.flags() & PTEFlags::V) != PTEFlags::empty()
     }
@@ -123,8 +124,9 @@ impl PageTable {
                 *pte = PageTableEntry::new(frame.ppn, PTEFlags::V);
                 //只是一个标记
                 self.frames.push(frame);
-                ppn = pte.ppn();
             }
+            // 这个物理地址是新分配的,上面就报证了是合法的
+            ppn = pte.ppn();
         }
         result
     }
@@ -151,7 +153,7 @@ impl PageTable {
     pub fn map(&mut self, vpn: VirtPageNum, ppn: PhysPageNum, flags: PTEFlags) {
         // 查找页表条目
         let pte = self.find_pte_create(vpn).unwrap();
-        println!("vpn:{}--------", vpn.0);
+        // println!("vpn:{}--------", vpn.0);
         // 在这个项目中肯定不会发生 !pte.is_valid() ?
         // 然而第一个出现问题就是在这里!!!
         assert!(!pte.is_valid(), "vpn {:?} is mapped before mapping", vpn);

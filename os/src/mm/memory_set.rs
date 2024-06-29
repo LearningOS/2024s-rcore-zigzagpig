@@ -279,6 +279,62 @@ impl MemorySet {
             false
         }
     }
+
+    ///
+    /// syscall ID：222
+    ///
+    /// 申请长度为 len 字节的物理内存（不要求实际物理内存位置，可以随便找一块），将其映射到 start 开始的虚存，内存页属性为 port
+    /// 参数：
+    /// - start 需要映射的虚存起始地址，要求按页对齐
+    /// - len 映射字节长度，可以为 0
+    /// - port：第 0 位表示是否可读，第 1 位表示是否可写，第 2 位表示是否可执行。其他位无效且必须为 0
+    ///
+    /// 返回值：执行成功则返回 0，错误返回 -1
+    ///
+    /// 说明：
+    /// 为了简单，目标虚存区间要求按页对齐，len 可直接按页向上取整，不考虑分配失败时的页回收。
+    ///
+    /// 可能的错误：
+    /// - start 没有按页大小对齐
+    /// - port & !0x7 != 0 (port 其余位必须为0)
+    /// - port & 0x7 = 0 (这样的内存无意义)
+    /// - [start, start + len) 中存在已经被映射的页
+    /// - 物理内存不足
+    pub fn mmap(&mut self, start: usize, len: usize, port: usize) -> isize {
+        let start_va: VirtAddr = start.into();
+        let end_va: VirtAddr = (start + len).into();
+        if start_va.page_offset() != 0 {
+            println!("start 没有按页大小对齐");
+            return -1;
+        }
+
+        // 非低4位不为0
+        if port & !0x7 != 0 {
+            println!("port 其余位必须为0");
+            return -1;
+        }
+        // 低4位为0
+        if port & 0x7 == 0 {
+            println!("这样的内存无意义");
+            return -1;
+        }
+
+        // 检查虚拟地址是否合法
+        if self
+            .areas
+            .iter()
+            .any(|area| area.intersects(start_va.floor(), end_va.ceil()))
+        {
+            println!("[start, start + len) 中存在已经被映射的页");
+            return -1;
+        }
+
+        let mut permission = MapPermission::from_bits((port as u8) << 1).unwrap();
+        permission.set(MapPermission::U, true);
+
+        self.insert_framed_area(start_va, (start + len).into(), permission);
+        0
+    }
 }
 /// map area structure, controls a contiguous piece of virtual memory
 /// MapArea 翻译成段比较好
@@ -298,8 +354,8 @@ impl MapArea {
     ) -> Self {
         let start_vpn: VirtPageNum = start_va.floor();
         let end_vpn: VirtPageNum = end_va.ceil();
-        println!("start_vpn={}", start_vpn.0);
-        println!("end_vpn={}", end_vpn.0);
+        println!("start_vpn={:x}", start_vpn.0);
+        println!("end_vpn={:x}", end_vpn.0);
         Self {
             vpn_range: VPNRange::new(start_vpn, end_vpn),
             data_frames: BTreeMap::new(),
@@ -307,9 +363,12 @@ impl MapArea {
             map_perm,
         }
     }
+    pub fn intersects(&self, start: VirtPageNum, end: VirtPageNum) -> bool {
+        self.vpn_range.intersects(&VPNRange::new(start, end))
+    }
     pub fn map_one(&mut self, page_table: &mut PageTable, vpn: VirtPageNum) {
         let ppn: PhysPageNum;
-        println!("MapType={:?}", self.map_type);
+        // println!("MapType={:?}", self.map_type);
         match self.map_type {
             MapType::Identical => {
                 ppn = PhysPageNum(vpn.0);
@@ -328,9 +387,11 @@ impl MapArea {
     }
     #[allow(unused)]
     pub fn unmap_one(&mut self, page_table: &mut PageTable, vpn: VirtPageNum) {
+        // 释放物理页
         if self.map_type == MapType::Framed {
             self.data_frames.remove(&vpn);
         }
+        // 数据物理页存放数据,页表物理页存放页表条目
         page_table.unmap(vpn);
     }
     /// 将页表的所有虚拟页号,分配物理页号,并匹配
@@ -346,6 +407,7 @@ impl MapArea {
             self.unmap_one(page_table, vpn);
         }
     }
+    // end 缩小到 new_end ,释放减少的部分. 更改段内存范围
     #[allow(unused)]
     pub fn shrink_to(&mut self, page_table: &mut PageTable, new_end: VirtPageNum) {
         for vpn in VPNRange::new(new_end, self.vpn_range.get_end()) {
