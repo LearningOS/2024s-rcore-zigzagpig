@@ -238,9 +238,7 @@ impl MemorySet {
     }
     /// Change page table by writing satp CSR Register.
     pub fn activate(&self) {
-        println!("before let satp = self.page_table.token();");
         let satp = self.page_table.token();
-        println!("after let satp = self.page_table.token();");
         unsafe {
             satp::write(satp);
             asm!("sfence.vma");
@@ -302,7 +300,10 @@ impl MemorySet {
     /// - 物理内存不足
     pub fn mmap(&mut self, start: usize, len: usize, port: usize) -> isize {
         let start_va: VirtAddr = start.into();
+        let start_vpn: VirtPageNum = start_va.floor();
         let end_va: VirtAddr = (start + len).into();
+        let end_vpn: VirtPageNum = end_va.ceil();
+
         if start_va.page_offset() != 0 {
             println!("!!!!!!start 没有按页大小对齐");
             return -1;
@@ -323,7 +324,7 @@ impl MemorySet {
         if self
             .areas
             .iter()
-            .any(|area| area.intersects(start_va.floor(), end_va.ceil()))
+            .any(|area| area.intersects(start_vpn, end_vpn))
         {
             println!("!!!!!![start, start + len) 中存在已经被映射的页");
             return -1;
@@ -332,7 +333,7 @@ impl MemorySet {
         let mut permission = MapPermission::from_bits((port as u8) << 1).unwrap();
         permission.set(MapPermission::U, true);
 
-        self.insert_framed_area(start_va, (start + len).into(), permission);
+        self.insert_framed_area(start_va, end_va, permission);
         0
     }
 
@@ -360,11 +361,15 @@ impl MemorySet {
         //     println!("start 没有按页大小对齐");
         //     return -1;
         // }
-        for va in start..start + len {
-            let vpn: VirtPageNum = va.into();
+        let start_va: VirtAddr = start.into();
+        let start_vpn: VirtPageNum = start_va.floor();
+        let end_va: VirtAddr = (start + len).into();
+        let end_vpn: VirtPageNum = end_va.ceil();
+
+        for vpn in start_vpn.0..end_vpn.0 {
             let mut flag = false;
             for area in self.areas.iter() {
-                if area.vpn_range.contains(vpn) {
+                if area.vpn_range.contains(VirtPageNum(vpn)) {
                     flag = true;
                     break;
                 }
@@ -419,8 +424,7 @@ impl MapArea {
     ) -> Self {
         let start_vpn: VirtPageNum = start_va.floor();
         let end_vpn: VirtPageNum = end_va.ceil();
-        println!("start_vpn={:x}", start_vpn.0);
-        println!("end_vpn={:x}", end_vpn.0);
+
         Self {
             vpn_range: VPNRange::new(start_vpn, end_vpn),
             data_frames: BTreeMap::new(),

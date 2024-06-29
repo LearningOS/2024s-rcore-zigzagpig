@@ -71,11 +71,6 @@ impl From<usize> for VirtAddr {
 }
 impl From<usize> for VirtPageNum {
     fn from(v: usize) -> Self {
-        println!(
-            "v:{};    (1 << VPN_WIDTH_SV39) - 1):{}",
-            v,
-            v & ((1 << VPN_WIDTH_SV39) - 1)
-        );
         Self(v & ((1 << VPN_WIDTH_SV39) - 1))
     }
 }
@@ -252,7 +247,7 @@ where
 
     // 范围是否包含v
     pub fn intersects(&self, other: &Self) -> bool {
-        !(self.l > other.r || self.r < other.l)
+        !(self.l >= other.r || self.r <= other.l)
     }
 }
 impl<T> IntoIterator for SimpleRange<T>
