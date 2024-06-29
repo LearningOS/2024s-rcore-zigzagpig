@@ -246,9 +246,9 @@ where
         self.r
     }
     // 范围是否包含v
-    // pub fn contains(&self, v: T) -> bool {
-    //     self.l <= v && self.r > v
-    // }
+    pub fn contains(&self, v: T) -> bool {
+        self.l <= v && self.r > v
+    }
 
     // 范围是否包含v
     pub fn intersects(&self, other: &Self) -> bool {

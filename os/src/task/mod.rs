@@ -164,6 +164,22 @@ impl TaskManager {
             inner.tasks[current].start_time = get_time_ms();
         }
         inner.tasks[current].syscall_times[syscall_id] += 1;
+        // if current == 9 {
+        //     println!(
+        //         "==========================current9:{} ;syscall_id:{} ; syscall_times:{}",
+        //         current, syscall_id, inner.tasks[9].syscall_times[syscall_id]
+        //     );
+        // }
+        // if syscall_id == 169 && inner.tasks[current].syscall_times[syscall_id] < 999999 {
+        //     println!(
+        //         "current:{} ;syscall_id:{} ; syscall_times:{}",
+        //         current, syscall_id, inner.tasks[current].syscall_times[syscall_id]
+        //     );
+        //     // println!(
+        //     //     "current9:{} ;syscall_id:{} ; syscall_times:{}",
+        //     //     current, syscall_id, inner.tasks[9].syscall_times[syscall_id]
+        //     // );
+        // }
     }
 
     fn get_current_task_info(&self) -> (TaskStatus, [u32; 500], usize) {
@@ -173,6 +189,23 @@ impl TaskManager {
         //     status: TaskStatus::Running,
         //     syscall_times: inner.tasks[current].syscall_times,
         //     time: inner.tasks[current].start_time,
+        // }
+        // println!("get_current_task_info current:{:?}", current);
+        // println!(
+        //     "get_current_task_info syscall_times169:{:?}",
+        //     inner.tasks[current].syscall_times[169]
+        // );
+        // println!(
+        //     "get_current_task_info111 syscall_times169:{:?}",
+        //     inner.tasks[1].syscall_times[169]
+        // );
+        // if current == 9 {
+        //     for i in 0..10 {
+        //         println!(
+        //             "get_current_task_info111 syscall_times169:{:?}",
+        //             inner.tasks[i].syscall_times[169]
+        //         );
+        //     }
         // }
         (
             TaskStatus::Running,
@@ -206,6 +239,12 @@ impl TaskManager {
 
         // inner.tasks[current].memory_set.insert_framed_area(start_va, (start + len).into(), permission);
         // 0
+    }
+
+    fn munmap(&self, start: usize, len: usize) -> isize {
+        let mut inner = self.inner.exclusive_access();
+        let current = inner.current_task;
+        inner.tasks[current].memory_set.munmap(start, len)
     }
 }
 
@@ -267,10 +306,18 @@ pub fn increase_current_syscall_count(syscall_id: usize) {
     if syscall_id >= MAX_SYSCALL_NUM {
         return;
     }
+    // if syscall_id == 169 {
+    //     println!("169169169169169");
+    // }
     TASK_MANAGER.increase_current_syscall_count(syscall_id);
 }
 
-/// get_current_memory_set
+/// mmap
 pub fn mmap(start: usize, len: usize, port: usize) -> isize {
     TASK_MANAGER.mmap(start, len, port)
+}
+
+///ummap
+pub fn munmap(start: usize, len: usize) -> isize {
+    TASK_MANAGER.munmap(start, len)
 }

@@ -304,18 +304,18 @@ impl MemorySet {
         let start_va: VirtAddr = start.into();
         let end_va: VirtAddr = (start + len).into();
         if start_va.page_offset() != 0 {
-            println!("start 没有按页大小对齐");
+            println!("!!!!!!start 没有按页大小对齐");
             return -1;
         }
 
         // 非低4位不为0
         if port & !0x7 != 0 {
-            println!("port 其余位必须为0");
+            println!("!!!!!!port 其余位必须为0");
             return -1;
         }
         // 低4位为0
         if port & 0x7 == 0 {
-            println!("这样的内存无意义");
+            println!("!!!!!!这样的内存无意义");
             return -1;
         }
 
@@ -325,7 +325,7 @@ impl MemorySet {
             .iter()
             .any(|area| area.intersects(start_va.floor(), end_va.ceil()))
         {
-            println!("[start, start + len) 中存在已经被映射的页");
+            println!("!!!!!![start, start + len) 中存在已经被映射的页");
             return -1;
         }
 
@@ -333,6 +333,71 @@ impl MemorySet {
         permission.set(MapPermission::U, true);
 
         self.insert_framed_area(start_va, (start + len).into(), permission);
+        0
+    }
+
+    /// syscall ID：215
+    ///
+    ///取消到 [start, start + len) 虚存的映射
+    ///
+    ///参数和返回值请参考 mmap
+    ///
+    ///说明：
+    ///为了简单，参数错误时不考虑内存的恢复和回收。
+    ///
+    ///可能的错误：
+    ///[start, start + len) 中存在未被映射的虚存。
+    ///
+    ///tips:
+    ///
+    ///一定要注意 mmap 是的页表项，注意 riscv 页表项的格式与 port 的区别。
+    ///
+    ///你增加 PTE_U 了吗？
+    pub fn munmap(&mut self, start: usize, len: usize) -> isize {
+        // let start_va: VirtAddr = start.into();
+        // let end_va: VirtAddr = (start + len).into();
+        // if start_va.page_offset() != 0 {
+        //     println!("start 没有按页大小对齐");
+        //     return -1;
+        // }
+        for va in start..start + len {
+            let vpn: VirtPageNum = va.into();
+            let mut flag = false;
+            for area in self.areas.iter() {
+                if area.vpn_range.contains(vpn) {
+                    flag = true;
+                    break;
+                }
+            }
+            if !flag {
+                println!("!!!!!![start, start + len) 中存在未被映射的虚存。");
+                return -1;
+            }
+        }
+        for va in start..start + len {
+            let vpn: VirtPageNum = va.into();
+            for area in self.areas.iter_mut() {
+                if area.vpn_range.contains(vpn) {
+                    area.unmap_one(&mut self.page_table, vpn);
+                    break;
+                }
+            }
+        }
+
+        // // 检查虚拟地址是否合法
+        // if self
+        //     .areas
+        //     .iter()
+        //     .any(|area| area.intersects(start_va.floor(), end_va.ceil()))
+        // {
+        //     println!("[start, start + len) 中存在已经被映射的页");
+        //     return -1;
+        // }
+
+        // let mut permission = MapPermission::from_bits((port as u8) << 1).unwrap();
+        // permission.set(MapPermission::U, true);
+
+        // self.insert_framed_area(start_va, (start + len).into(), permission);
         0
     }
 }
