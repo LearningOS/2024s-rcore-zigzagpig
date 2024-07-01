@@ -308,18 +308,18 @@ impl MemorySet {
         let end_va = end_vpn.into();
 
         if start_va.page_offset() != 0 {
-            println!("!!!!!!start 没有按页大小对齐");
+            //debug!("!!!!!!start 没有按页大小对齐");
             return -1;
         }
 
         // 非低4位不为0
         if port & !0x7 != 0 {
-            println!("!!!!!!port 其余位必须为0");
+            //debug!("!!!!!!port 其余位必须为0");
             return -1;
         }
         // 低4位为0
         if port & 0x7 == 0 {
-            println!("!!!!!!这样的内存无意义");
+            //debug!("!!!!!!这样的内存无意义");
             return -1;
         }
 
@@ -329,10 +329,10 @@ impl MemorySet {
         for vpn in start_vpn.0..end_vpn.0 {
             for area in &self.areas {
                 if area.data_frames.get(&VirtPageNum(vpn)).is_some() {
-                    println!(
-                        "!!!!!![start {}, start + len {}) 中存在已经被映射的页",
-                        start, len
-                    );
+                    // debug!(
+                    //     "!!!!!![start {}, start + len {}) 中存在已经被映射的页",
+                    //     start, len
+                    // );
                     debug!(
                         "start_va={:?},start_vpn={:?},end_va={:?},end_vpn={:?}",
                         start_va, start_vpn, end_va, end_vpn
@@ -430,7 +430,7 @@ impl MemorySet {
                     "start_va={:?},start_vpn={:?},vpn={:?},end_vpn={:?}",
                     start_va, start_vpn, vpn, end_vpn
                 );
-                println!("!!!!!![start, start + len) 中存在未被映射的虚存。");
+                // debug!("!!!!!![start, start + len) 中存在未被映射的虚存。");
                 return -1;
             }
         }
