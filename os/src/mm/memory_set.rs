@@ -299,10 +299,13 @@ impl MemorySet {
     /// - [start, start + len) 中存在已经被映射的页
     /// - 物理内存不足
     pub fn mmap(&mut self, start: usize, len: usize, port: usize) -> isize {
+        let len = if len < 4096 { 4096 } else { len };
+
         let start_va: VirtAddr = start.into();
         let start_vpn: VirtPageNum = start_va.floor();
-        let end_va: VirtAddr = (start + len).into();
-        let end_vpn: VirtPageNum = end_va.ceil();
+
+        let end_vpn: VirtPageNum = VirtAddr::from(start + len).ceil();
+        let end_va = end_vpn.into();
 
         if start_va.page_offset() != 0 {
             println!("!!!!!!start 没有按页大小对齐");
@@ -321,19 +324,46 @@ impl MemorySet {
         }
 
         // 检查虚拟地址是否合法
-        if self
-            .areas
-            .iter()
-            .any(|area| area.intersects(start_vpn, end_vpn))
-        {
-            println!("!!!!!![start, start + len) 中存在已经被映射的页");
-            return -1;
+        // let vpn_range = VPNRange::new(start_vpn, end_vpn);
+        // vpn_range.into_iter().any(|vpn| self.areas.iter().)
+        for vpn in start_vpn.0..end_vpn.0 {
+            for area in &self.areas {
+                if area.data_frames.get(&VirtPageNum(vpn)).is_some() {
+                    println!(
+                        "!!!!!![start {}, start + len {}) 中存在已经被映射的页",
+                        start, len
+                    );
+                    debug!(
+                        "start_va={:?},start_vpn={:?},end_va={:?},end_vpn={:?}",
+                        start_va, start_vpn, end_va, end_vpn
+                    );
+                    return -1;
+                }
+            }
         }
+        // if self
+        //     .areas
+        //     .iter()
+        //     .any(|area| area.intersects(start_vpn, end_vpn))
+        // {
+        //     println!(
+        //         "!!!!!![start {}, start + len {}) 中存在已经被映射的页",
+        //         start, len
+        //     );
+        //     debug!(
+        //         "start_va={:?},start_vpn={:?},end_va={:?},end_vpn={:?}",
+        //         start_va, start_vpn, end_va, end_vpn
+        //     );
+        //     return -1;
+        // }
 
         let mut permission = MapPermission::from_bits((port as u8) << 1).unwrap();
         permission.set(MapPermission::U, true);
 
         self.insert_framed_area(start_va, end_va, permission);
+        for area in &mut self.areas {
+            debug!("after mmap {:?}", area.data_frames);
+        }
         0
     }
 
@@ -361,31 +391,47 @@ impl MemorySet {
         //     println!("start 没有按页大小对齐");
         //     return -1;
         // }
+        let len = if len < 4096 { 4096 } else { len };
         let start_va: VirtAddr = start.into();
         let start_vpn: VirtPageNum = start_va.floor();
-        let end_va: VirtAddr = (start + len).into();
-        let end_vpn: VirtPageNum = end_va.ceil();
 
+        let end_vpn: VirtPageNum = VirtAddr::from(start + len).ceil();
+        debug!(
+            "start_va={:?},start_vpn={:?},--={:?},end_vpn={:?}",
+            start_va, start_vpn, 0, end_vpn
+        );
+        // let end_va: VirtAddr = end_vpn.into();
+
+        // for vpn in start_vpn.0..end_vpn.0 {
+        //     let mut flag = false;
+        //     for area in self.areas.iter() {
+        //         if area.vpn_range.contains(VirtPageNum(vpn)) {
+        //             flag = true;
+        //             break;
+        //         }
+        //     }
+        //     if !flag {
+        //         println!("!!!!!![start, start + len) 中存在未被映射的虚存。");
+        //         return -1;
+        //     }
+        // }
         for vpn in start_vpn.0..end_vpn.0 {
-            let mut flag = false;
-            for area in self.areas.iter() {
-                if area.vpn_range.contains(VirtPageNum(vpn)) {
-                    flag = true;
+            let mut unmap_success = false;
+            for area in &mut self.areas {
+                debug!("{:?}", area.data_frames);
+                if area.data_frames.get(&VirtPageNum(vpn)).is_some() {
+                    unmap_success = true;
+                    area.unmap_one(&mut self.page_table, VirtPageNum(vpn));
                     break;
                 }
             }
-            if !flag {
+            if !unmap_success {
+                debug!(
+                    "start_va={:?},start_vpn={:?},vpn={:?},end_vpn={:?}",
+                    start_va, start_vpn, vpn, end_vpn
+                );
                 println!("!!!!!![start, start + len) 中存在未被映射的虚存。");
                 return -1;
-            }
-        }
-        for va in start..start + len {
-            let vpn: VirtPageNum = va.into();
-            for area in self.areas.iter_mut() {
-                if area.vpn_range.contains(vpn) {
-                    area.unmap_one(&mut self.page_table, vpn);
-                    break;
-                }
             }
         }
 
@@ -432,9 +478,9 @@ impl MapArea {
             map_perm,
         }
     }
-    pub fn intersects(&self, start: VirtPageNum, end: VirtPageNum) -> bool {
-        self.vpn_range.intersects(&VPNRange::new(start, end))
-    }
+    // pub fn intersects(&self, start: VirtPageNum, end: VirtPageNum) -> bool {
+    //     self.vpn_range.intersects(&VPNRange::new(start, end))
+    // }
     pub fn map_one(&mut self, page_table: &mut PageTable, vpn: VirtPageNum) {
         let ppn: PhysPageNum;
         // println!("MapType={:?}", self.map_type);
@@ -466,7 +512,7 @@ impl MapArea {
     /// 将页表的所有虚拟页号,分配物理页号,并匹配
     pub fn map(&mut self, page_table: &mut PageTable) {
         for vpn in self.vpn_range {
-            // println!("vpn:{}", vpn.0);
+            debug!("vpn:{}", vpn.0);
             self.map_one(page_table, vpn);
         }
     }
