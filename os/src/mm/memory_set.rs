@@ -106,8 +106,8 @@ impl MemorySet {
             MapType::Identical,
             MapPermission::R | MapPermission::X,
         );
-        println!("text_map_area={:?}", text_map_area.vpn_range.get_start());
-        println!("text_map_area={:?}", text_map_area.vpn_range.get_end());
+        // println!("text_map_area={:?}", text_map_area.vpn_range.get_start());
+        // println!("text_map_area={:?}", text_map_area.vpn_range.get_end());
         // println!("text_map_area={}",text_map_area.vpn_range.get_start());
         // println!("text_map_area={}",text_map_area.vpn_range.get_start());
         memory_set.push(text_map_area, None);
@@ -333,10 +333,10 @@ impl MemorySet {
                     //     "!!!!!![start {}, start + len {}) 中存在已经被映射的页",
                     //     start, len
                     // );
-                    debug!(
-                        "start_va={:?},start_vpn={:?},end_va={:?},end_vpn={:?}",
-                        start_va, start_vpn, end_va, end_vpn
-                    );
+                    // debug!(
+                    //     "start_va={:?},start_vpn={:?},end_va={:?},end_vpn={:?}",
+                    //     start_va, start_vpn, end_va, end_vpn
+                    // );
                     return -1;
                 }
             }
@@ -361,9 +361,9 @@ impl MemorySet {
         permission.set(MapPermission::U, true);
 
         self.insert_framed_area(start_va, end_va, permission);
-        for area in &mut self.areas {
-            debug!("after mmap {:?}", area.data_frames);
-        }
+        // for area in &mut self.areas {
+        //     debug!("after mmap {:?}", area.data_frames);
+        // }
         0
     }
 
@@ -396,10 +396,10 @@ impl MemorySet {
         let start_vpn: VirtPageNum = start_va.floor();
 
         let end_vpn: VirtPageNum = VirtAddr::from(start + len).ceil();
-        debug!(
-            "start_va={:?},start_vpn={:?},--={:?},end_vpn={:?}",
-            start_va, start_vpn, 0, end_vpn
-        );
+        // debug!(
+        //     "start_va={:?},start_vpn={:?},--={:?},end_vpn={:?}",
+        //     start_va, start_vpn, 0, end_vpn
+        // );
         // let end_va: VirtAddr = end_vpn.into();
 
         // for vpn in start_vpn.0..end_vpn.0 {
@@ -418,7 +418,7 @@ impl MemorySet {
         for vpn in start_vpn.0..end_vpn.0 {
             let mut unmap_success = false;
             for area in &mut self.areas {
-                debug!("{:?}", area.data_frames);
+                // debug!("{:?}", area.data_frames);
                 if area.data_frames.get(&VirtPageNum(vpn)).is_some() {
                     unmap_success = true;
                     area.unmap_one(&mut self.page_table, VirtPageNum(vpn));
@@ -426,10 +426,10 @@ impl MemorySet {
                 }
             }
             if !unmap_success {
-                debug!(
-                    "start_va={:?},start_vpn={:?},vpn={:?},end_vpn={:?}",
-                    start_va, start_vpn, vpn, end_vpn
-                );
+                // debug!(
+                //     "start_va={:?},start_vpn={:?},vpn={:?},end_vpn={:?}",
+                //     start_va, start_vpn, vpn, end_vpn
+                // );
                 // debug!("!!!!!![start, start + len) 中存在未被映射的虚存。");
                 return -1;
             }
@@ -512,7 +512,7 @@ impl MapArea {
     /// 将页表的所有虚拟页号,分配物理页号,并匹配
     pub fn map(&mut self, page_table: &mut PageTable) {
         for vpn in self.vpn_range {
-            debug!("vpn:{}", vpn.0);
+            // debug!("vpn:{}", vpn.0);
             self.map_one(page_table, vpn);
         }
     }
