@@ -125,7 +125,7 @@ impl PageTable {
                 //只是一个标记
                 self.frames.push(frame);
             }
-            // 这个物理地址是新分配的,上面就报证了是合法的
+            // 这个物理地址是新分配的,上面就保证了是合法的
             ppn = pte.ppn();
         }
         result
