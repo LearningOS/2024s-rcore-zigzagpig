@@ -19,3 +19,4 @@ pushall.sh
 
 user/
 ci-user/
+os/ci-test.sh
