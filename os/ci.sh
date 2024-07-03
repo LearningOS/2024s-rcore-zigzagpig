@@ -22,6 +22,28 @@ test() {
   fi
 }
 
+clone_repos() {
+
+  # 定义临时仓库存放位置
+  REPO_DIR=~/2024s-rcore-zigzagpig/repos
+
+  # 定义目标仓库克隆位置
+  TARGET_DIR=~/2024s-rcore-zigzagpig/ci-user
+
+  # 检查临时仓库是否已经存在，如果不存在则克隆
+  [ ! -d "$REPO_DIR/rCore-Tutorial-Checker-2024S" ] && git clone https://github.com/LearningOS/rCore-Tutorial-Checker-2024S.git "$REPO_DIR/rCore-Tutorial-Checker-2024S"
+  [ ! -d "$REPO_DIR/rCore-Tutorial-Test-2024S" ] && git clone https://github.com/LearningOS/rCore-Tutorial-Test-2024S.git "$REPO_DIR/rCore-Tutorial-Test-2024S"
+
+  # 创建目标目录
+  mkdir -p "$TARGET_DIR"
+  mkdir -p "$TARGET_DIR/user"
+
+  # 从临时仓库克隆到目标位置
+  git clone "$REPO_DIR/rCore-Tutorial-Checker-2024S" "$TARGET_DIR"
+  git clone "$REPO_DIR/rCore-Tutorial-Test-2024S" "$TARGET_DIR/user"
+
+}
+
 # Define the commands to execute in a function
 execute_commands() {
   echo "Executing commands..."
@@ -30,11 +52,13 @@ execute_commands() {
   cd ~/2024s-rcore-zigzagpig/ || exit
   sudo rm -r ~/2024s-rcore-zigzagpig/ci-user
   git reset --hard HEAD
-  git clone https://github.com/LearningOS/rCore-Tutorial-Checker-2024S.git ci-user
-  git clone https://github.com/LearningOS/rCore-Tutorial-Test-2024S.git ci-user/user
+  # git clone https://github.com/LearningOS/rCore-Tutorial-Checker-2024S.git ci-user
+  # git clone https://github.com/LearningOS/rCore-Tutorial-Test-2024S.git ci-user/user
+  clone_repos
   cd ~/2024s-rcore-zigzagpig/ci-user || exit
   test
   git reset --hard HEAD
+  git status
   # Add more commands as needed
 }
 

@@ -20,3 +20,4 @@ pushall.sh
 user/
 ci-user/
 os/ci.sh
+repos/
