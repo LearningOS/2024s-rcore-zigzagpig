@@ -2,11 +2,8 @@
 1. 为内存管理代码添加了注释。
 2. 完成 munmap 。遍历给定虚拟地址对应的虚拟页，依次释放对应的虚拟页，发现虚拟页不存在直接返回错误，严谨的做法是先扫描一遍，不存在错误再进行处理。
    - 注意判断出错的时机，第一个段搜不到直接跳出是不对的，所有段都不存在才是错误，这个错误调试了非常久，一定要学gdb。
-3. 完成 mmap 。求出起止虚拟页和虚拟地址，判断可能的错误，使用data_frames.get() 来判断虚拟页是否已存在。将系统调用的的权限参数转成内核可以识别的格式，插入一个新的段。
+3. 完成 mmap 。求出起止虚拟页和虚拟地址，判断可能的错误，使用data_frames.get() 来判断虚拟页是否已存在。将系统调用的的权限参数转成内核可以识别的格式，插入一个新的段。注意 len=0 的情况。
 4. 修改 sys_task_info 和 sys_get_time 的处理方法，用户态数据转成内核可使用的引用，防止跨页错误，需要逐字节写入。
-
-3. 文件`os/src/task/mod.rs`,导入外部引用`use crate::config:: MAX_SYSCALL_NUM;`扩展`TaskControlBlock `用于初始化任务调用信息,`use crate::timer::get_time_ms;`分别在第一次调用系统函数和用系统调用获取相关信息时获取当前毫秒时间.实现两个供外部调用的函数`get_current_task_info()`和`increase_current_syscall_count()`,具体实现调用`TaskManager`的同名内部实现函数.
-4. 文件`os/src/task/task.rs`,扩展`TaskControlBlock `用于存储任务调用信息
 ---
 
 # 总结
@@ -17,7 +14,7 @@ sudo rm -r ~/2024s-rcore-zigzagpig/ci-user
 git reset --hard HEAD
 git clone https://github.com/LearningOS/rCore-Tutorial-Checker-2024S.git ci-user
 git clone https://github.com/LearningOS/rCore-Tutorial-Test-2024S.git ci-user/user
-cd ci-user && make test CHAPTER=4 OFFLINE=1
+cd ~/2024s-rcore-zigzagpig/ci-user && make test CHAPTER=4 OFFLINE=1
 
 ```
 - 缺点
