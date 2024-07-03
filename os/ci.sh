@@ -4,6 +4,7 @@ test() {
   # Sample input line (in practice, replace this with actual command output)
   # output="Test passed21919: 15/15"
   output=$(make test CHAPTER=4 OFFLINE=1)
+  echo "$output"
 
   # Extract the part after "Test passed" and before the colon
   # Use `awk` to split and retrieve numbers
@@ -41,9 +42,9 @@ execute_commands() {
 output=$(git status)
 
 # Define the lines to check
-line1="modified:   os/.cargo/config.toml"
-line2="modified:   os/Makefile"
-line3="modified:   os/build.rs"
+line1="config.toml"
+line2="Makefile"
+line3="build.rs"
 clean_message="nothing to commit, working tree clean"
 
 # Check if all the lines are present in the output
