@@ -1,9 +1,13 @@
 //! Types related to task management & Functions for completely changing TCB
 use super::TaskContext;
 use super::{kstack_alloc, pid_alloc, KernelStack, PidHandle};
-use crate::config::TRAP_CONTEXT_BASE;
+use crate::config::{MAX_SYSCALL_NUM, TRAP_CONTEXT_BASE};
 use crate::mm::{MemorySet, PhysPageNum, VirtAddr, KERNEL_SPACE};
+// use crate::mm::{
+//     kernel_stack_position, MapPermission, MemorySet, PhysPageNum, VirtAddr, KERNEL_SPACE,
+// };
 use crate::sync::UPSafeCell;
+use crate::timer::get_time_ms;
 use crate::trap::{trap_handler, TrapContext};
 use alloc::sync::{Arc, Weak};
 use alloc::vec::Vec;
@@ -68,6 +72,12 @@ pub struct TaskControlBlockInner {
 
     /// Program break
     pub program_brk: usize,
+
+    /// Syscall_times
+    pub syscall_times: [u32; MAX_SYSCALL_NUM],
+
+    /// First yield time
+    pub start_time: usize,
 }
 
 impl TaskControlBlockInner {
@@ -118,6 +128,8 @@ impl TaskControlBlock {
                     exit_code: 0,
                     heap_bottom: user_sp,
                     program_brk: user_sp,
+                    start_time: 0,
+                    syscall_times: [0; MAX_SYSCALL_NUM],
                 })
             },
         };
@@ -191,6 +203,9 @@ impl TaskControlBlock {
                     exit_code: 0,
                     heap_bottom: parent_inner.heap_bottom,
                     program_brk: parent_inner.program_brk,
+                    start_time: parent_inner.start_time,
+                    // 这里的所有权转移吗
+                    syscall_times: parent_inner.syscall_times,
                 })
             },
         });
@@ -235,6 +250,93 @@ impl TaskControlBlock {
         } else {
             None
         }
+    }
+    /// increase_current_syscall_count
+    pub fn increase_current_syscall_count(&self, syscall_id: usize) {
+        let mut inner = self.inner_exclusive_access();
+
+        if inner.start_time == 0 {
+            inner.start_time = get_time_ms();
+        }
+        inner.syscall_times[syscall_id] += 1;
+        // if current == 9 {
+        //     println!(
+        //         "==========================current9:{} ;syscall_id:{} ; syscall_times:{}",
+        //         current, syscall_id, inner.tasks[9].syscall_times[syscall_id]
+        //     );
+        // }
+        // if syscall_id == 169 && inner.tasks[current].syscall_times[syscall_id] < 999999 {
+        //     println!(
+        //         "current:{} ;syscall_id:{} ; syscall_times:{}",
+        //         current, syscall_id, inner.tasks[current].syscall_times[syscall_id]
+        //     );
+        //     // println!(
+        //     //     "current9:{} ;syscall_id:{} ; syscall_times:{}",
+        //     //     current, syscall_id, inner.tasks[9].syscall_times[syscall_id]
+        //     // );
+        // }
+    }
+    /// get_current_task_info
+    pub fn get_current_task_info(&self) -> (TaskStatus, [u32; 500], usize) {
+        let inner = self.inner_exclusive_access();
+        // TaskInfo {
+        //     status: TaskStatus::Running,
+        //     syscall_times: inner.tasks[current].syscall_times,
+        //     time: inner.tasks[current].start_time,
+        // }
+        // println!("get_current_task_info current:{:?}", current);
+        // println!(
+        //     "get_current_task_info syscall_times169:{:?}",
+        //     inner.tasks[current].syscall_times[169]
+        // );
+        // println!(
+        //     "get_current_task_info111 syscall_times169:{:?}",
+        //     inner.tasks[1].syscall_times[169]
+        // );
+        // if current == 9 {
+        //     for i in 0..10 {
+        //         println!(
+        //             "get_current_task_info111 syscall_times169:{:?}",
+        //             inner.tasks[i].syscall_times[169]
+        //         );
+        //     }
+        // }
+        (
+            TaskStatus::Running,
+            inner.syscall_times,
+            get_time_ms() - inner.start_time,
+        )
+    }
+    /// mmap
+    pub fn mmap(&self, start: usize, len: usize, port: usize) -> isize {
+        let mut inner = self.inner_exclusive_access();
+        inner.memory_set.mmap(start, len, port)
+
+        // let start_va: VirtAddr = start.into();
+        // if start_va.page_offset() != 0 {
+        //     panic!("start 没有按页大小对齐");
+        // }
+
+        // // 非低4位不为0
+        // if port & !0x7 != 0 {
+        //     panic!("port 其余位必须为0");
+        // }
+        // // 低4位为0
+        // if port & 0x7 = 0  {
+        //     panic!("这样的内存无意义");
+        // }
+
+        // let mut permission = MapPermission::from_bits((prot as u8) << 1).unwrap();
+        // permission.set(MapPermission::U, true);
+        // inner.tasks[current].memory_set.token()
+
+        // inner.tasks[current].memory_set.insert_framed_area(start_va, (start + len).into(), permission);
+        // 0
+    }
+    /// munmap
+    pub fn munmap(&self, start: usize, len: usize) -> isize {
+        let mut inner = self.inner_exclusive_access();
+        inner.memory_set.munmap(start, len)
     }
 }
 

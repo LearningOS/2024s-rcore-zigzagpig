@@ -8,15 +8,20 @@ const VA_WIDTH_SV39: usize = 39;
 const PPN_WIDTH_SV39: usize = PA_WIDTH_SV39 - PAGE_SIZE_BITS;
 const VPN_WIDTH_SV39: usize = VA_WIDTH_SV39 - PAGE_SIZE_BITS;
 
+/// 56位物理地址: 44位物理页,12位页偏移
 /// physical address
 #[derive(Copy, Clone, Ord, PartialOrd, Eq, PartialEq)]
 pub struct PhysAddr(pub usize);
+/// 39位虚拟地址 27位,页偏移12位
 /// virtual address
 #[derive(Copy, Clone, Ord, PartialOrd, Eq, PartialEq)]
 pub struct VirtAddr(pub usize);
+/// 物理页号44位
 /// physical page number
 #[derive(Copy, Clone, Ord, PartialOrd, Eq, PartialEq)]
 pub struct PhysPageNum(pub usize);
+/// 虚拟页数 27位
+/// 不包含权限相关信息,权限是页表项(条目)要管的事情
 /// virtual page number
 #[derive(Copy, Clone, Ord, PartialOrd, Eq, PartialEq)]
 pub struct VirtPageNum(pub usize);
@@ -59,6 +64,7 @@ impl From<usize> for PhysPageNum {
     }
 }
 impl From<usize> for VirtAddr {
+    // 虚拟地址无所谓, 由于是分配的物理地址,两者后面建映射
     fn from(v: usize) -> Self {
         Self(v & ((1 << VA_WIDTH_SV39) - 1))
     }
@@ -157,6 +163,7 @@ impl From<PhysPageNum> for PhysAddr {
 
 impl VirtPageNum {
     /// Get the indexes of the page table entry
+    /// 根据3个9位获取页表条目的索引
     pub fn indexes(&self) -> [usize; 3] {
         let mut vpn = self.0;
         let mut idx = [0usize; 3];
@@ -177,11 +184,17 @@ impl PhysAddr {
 }
 impl PhysPageNum {
     /// Get the reference of page table(array of ptes)
+    ///
     pub fn get_pte_array(&self) -> &'static mut [PageTableEntry] {
         let pa: PhysAddr = (*self).into();
+        // 分配512个PageTableEntry页表条目大小的空间
+        // size = 32 (0x20),一个页帧存不了512个页表项吧?
+        // 不对,存得了,因为*mut PageTableEntry是可变指针,大小是8字节
+        // 4096/8 = 512 刚刚好
         unsafe { core::slice::from_raw_parts_mut(pa.0 as *mut PageTableEntry, 512) }
     }
     /// Get the reference of page(array of bytes)
+    /// 获取物理页号对应的内存,返回&[u8]可变引用
     pub fn get_bytes_array(&self) -> &'static mut [u8] {
         let pa: PhysAddr = (*self).into();
         unsafe { core::slice::from_raw_parts_mut(pa.0 as *mut u8, 4096) }
