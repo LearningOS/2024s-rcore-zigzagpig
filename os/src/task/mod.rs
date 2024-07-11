@@ -30,7 +30,7 @@ pub use task::{TaskControlBlock, TaskStatus};
 
 pub use context::TaskContext;
 pub use id::{kstack_alloc, pid_alloc, KernelStack, PidHandle};
-pub use manager::add_task;
+pub use manager::{add_task, fetch_min_task_stride};
 pub use processor::{
     current_task, current_trap_cx, current_user_token, run_tasks, schedule, take_current_task,
     Processor,
@@ -38,18 +38,24 @@ pub use processor::{
 /// Suspend the current 'Running' task and run the next task in task list.
 pub fn suspend_current_and_run_next() {
     // There must be an application running.
-    let task = take_current_task().unwrap();
+    // 之前因为不想切换一直执行,所以固定切换到当前任务
+    let task = fetch_min_task_stride().unwrap();
 
     // ---- access current TCB exclusively
     let mut task_inner = task.inner_exclusive_access();
     let task_cx_ptr = &mut task_inner.task_cx as *mut TaskContext;
     // Change status to Ready
     task_inner.task_status = TaskStatus::Ready;
+
+    const BIG_STRIDE: usize = 2 << 30;
+    task_inner.task_stride = task_inner.task_stride + BIG_STRIDE / task_inner.task_priority;
+
     drop(task_inner);
     // ---- release current PCB
 
     // push back to ready queue.
     add_task(task);
+
     // jump to scheduling cycle
     schedule(task_cx_ptr);
 }

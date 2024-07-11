@@ -25,6 +25,27 @@ impl TaskManager {
     pub fn fetch(&mut self) -> Option<Arc<TaskControlBlock>> {
         self.ready_queue.pop_front()
     }
+
+    /// Take a process out of the ready queue
+    pub fn fetch_min_task_stride(&mut self) -> Option<Arc<TaskControlBlock>> {
+        let len = self.ready_queue.len();
+        let mut min_stride = 0;
+        let mut min_stride_task = None;
+        for _ in 0..len {
+            if let Some(current) = self.ready_queue.pop_front() {
+                // min_stride = min_stride.min(current.inner_exclusive_access().task_stride);
+                // let current =current.inner_exclusive_access();
+                if min_stride > current.inner_exclusive_access().task_stride {
+                    min_stride = current.inner_exclusive_access().task_stride;
+                    min_stride_task = Some(Arc::clone(&current));
+                    self.ready_queue.push_back(current);
+                }
+            } else {
+                return None;
+            }
+        }
+        min_stride_task
+    }
 }
 
 lazy_static! {
@@ -43,4 +64,10 @@ pub fn add_task(task: Arc<TaskControlBlock>) {
 pub fn fetch_task() -> Option<Arc<TaskControlBlock>> {
     //trace!("kernel: TaskManager::fetch_task");
     TASK_MANAGER.exclusive_access().fetch()
+}
+
+/// Take a process out of the ready queue
+pub fn fetch_min_task_stride() -> Option<Arc<TaskControlBlock>> {
+    //trace!("kernel: TaskManager::fetch_task");
+    TASK_MANAGER.exclusive_access().fetch_min_task_stride()
 }
