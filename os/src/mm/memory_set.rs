@@ -3,7 +3,9 @@ use super::{frame_alloc, FrameTracker};
 use super::{PTEFlags, PageTable, PageTableEntry};
 use super::{PhysAddr, PhysPageNum, VirtAddr, VirtPageNum};
 use super::{StepByOne, VPNRange};
-use crate::config::{MEMORY_END, PAGE_SIZE, TRAMPOLINE, TRAP_CONTEXT_BASE, USER_STACK_SIZE};
+use crate::config::{
+    KERNEL_STACK_SIZE, MEMORY_END, PAGE_SIZE, TRAMPOLINE, TRAP_CONTEXT_BASE, USER_STACK_SIZE,
+};
 use crate::sync::UPSafeCell;
 use alloc::collections::BTreeMap;
 use alloc::sync::Arc;
@@ -300,8 +302,183 @@ impl MemorySet {
             false
         }
     }
+
+    ///
+    /// syscall ID：222
+    ///
+    /// 申请长度为 len 字节的物理内存（不要求实际物理内存位置，可以随便找一块），将其映射到 start 开始的虚存，内存页属性为 port
+    /// 参数：
+    /// - start 需要映射的虚存起始地址，要求按页对齐
+    /// - len 映射字节长度，可以为 0
+    /// - port：第 0 位表示是否可读，第 1 位表示是否可写，第 2 位表示是否可执行。其他位无效且必须为 0
+    ///
+    /// 返回值：执行成功则返回 0，错误返回 -1
+    ///
+    /// 说明：
+    /// 为了简单，目标虚存区间要求按页对齐，len 可直接按页向上取整，不考虑分配失败时的页回收。
+    ///
+    /// 可能的错误：
+    /// - start 没有按页大小对齐
+    /// - port & !0x7 != 0 (port 其余位必须为0)
+    /// - port & 0x7 = 0 (这样的内存无意义)
+    /// - [start, start + len) 中存在已经被映射的页
+    /// - 物理内存不足
+    pub fn mmap(&mut self, start: usize, len: usize, port: usize) -> isize {
+        let len = if len < 4096 { 4096 } else { len };
+
+        let start_va: VirtAddr = start.into();
+        let start_vpn: VirtPageNum = start_va.floor();
+
+        let end_vpn: VirtPageNum = VirtAddr::from(start + len).ceil();
+        let end_va = end_vpn.into();
+
+        if start_va.page_offset() != 0 {
+            //debug!("!!!!!!start 没有按页大小对齐");
+            return -1;
+        }
+
+        // 非低4位不为0
+        if port & !0x7 != 0 {
+            //debug!("!!!!!!port 其余位必须为0");
+            return -1;
+        }
+        // 低4位为0
+        if port & 0x7 == 0 {
+            //debug!("!!!!!!这样的内存无意义");
+            return -1;
+        }
+
+        // 检查虚拟地址是否合法
+        // let vpn_range = VPNRange::new(start_vpn, end_vpn);
+        // vpn_range.into_iter().any(|vpn| self.areas.iter().)
+        for vpn in start_vpn.0..end_vpn.0 {
+            for area in &self.areas {
+                if area.data_frames.get(&VirtPageNum(vpn)).is_some() {
+                    // debug!(
+                    //     "!!!!!![start {}, start + len {}) 中存在已经被映射的页",
+                    //     start, len
+                    // );
+                    // debug!(
+                    //     "start_va={:?},start_vpn={:?},end_va={:?},end_vpn={:?}",
+                    //     start_va, start_vpn, end_va, end_vpn
+                    // );
+                    return -1;
+                }
+            }
+        }
+        // if self
+        //     .areas
+        //     .iter()
+        //     .any(|area| area.intersects(start_vpn, end_vpn))
+        // {
+        //     println!(
+        //         "!!!!!![start {}, start + len {}) 中存在已经被映射的页",
+        //         start, len
+        //     );
+        //     debug!(
+        //         "start_va={:?},start_vpn={:?},end_va={:?},end_vpn={:?}",
+        //         start_va, start_vpn, end_va, end_vpn
+        //     );
+        //     return -1;
+        // }
+
+        let mut permission = MapPermission::from_bits((port as u8) << 1).unwrap();
+        permission.set(MapPermission::U, true);
+
+        self.insert_framed_area(start_va, end_va, permission);
+        // for area in &mut self.areas {
+        //     debug!("after mmap {:?}", area.data_frames);
+        // }
+        0
+    }
+
+    /// syscall ID：215
+    ///
+    ///取消到 [start, start + len) 虚存的映射
+    ///
+    ///参数和返回值请参考 mmap
+    ///
+    ///说明：
+    ///为了简单，参数错误时不考虑内存的恢复和回收。
+    ///
+    ///可能的错误：
+    ///[start, start + len) 中存在未被映射的虚存。
+    ///
+    ///tips:
+    ///
+    ///一定要注意 mmap 是的页表项，注意 riscv 页表项的格式与 port 的区别。
+    ///
+    ///你增加 PTE_U 了吗？
+    pub fn munmap(&mut self, start: usize, len: usize) -> isize {
+        // let start_va: VirtAddr = start.into();
+        // let end_va: VirtAddr = (start + len).into();
+        // if start_va.page_offset() != 0 {
+        //     println!("start 没有按页大小对齐");
+        //     return -1;
+        // }
+        let len = if len < 4096 { 4096 } else { len };
+        let start_va: VirtAddr = start.into();
+        let start_vpn: VirtPageNum = start_va.floor();
+
+        let end_vpn: VirtPageNum = VirtAddr::from(start + len).ceil();
+        // debug!(
+        //     "start_va={:?},start_vpn={:?},--={:?},end_vpn={:?}",
+        //     start_va, start_vpn, 0, end_vpn
+        // );
+        // let end_va: VirtAddr = end_vpn.into();
+
+        // for vpn in start_vpn.0..end_vpn.0 {
+        //     let mut flag = false;
+        //     for area in self.areas.iter() {
+        //         if area.vpn_range.contains(VirtPageNum(vpn)) {
+        //             flag = true;
+        //             break;
+        //         }
+        //     }
+        //     if !flag {
+        //         println!("!!!!!![start, start + len) 中存在未被映射的虚存。");
+        //         return -1;
+        //     }
+        // }
+        for vpn in start_vpn.0..end_vpn.0 {
+            let mut unmap_success = false;
+            for area in &mut self.areas {
+                // debug!("{:?}", area.data_frames);
+                if area.data_frames.get(&VirtPageNum(vpn)).is_some() {
+                    unmap_success = true;
+                    area.unmap_one(&mut self.page_table, VirtPageNum(vpn));
+                    break;
+                }
+            }
+            if !unmap_success {
+                // debug!(
+                //     "start_va={:?},start_vpn={:?},vpn={:?},end_vpn={:?}",
+                //     start_va, start_vpn, vpn, end_vpn
+                // );
+                // debug!("!!!!!![start, start + len) 中存在未被映射的虚存。");
+                return -1;
+            }
+        }
+
+        // // 检查虚拟地址是否合法
+        // if self
+        //     .areas
+        //     .iter()
+        //     .any(|area| area.intersects(start_va.floor(), end_va.ceil()))
+        // {
+        //     println!("[start, start + len) 中存在已经被映射的页");
+        //     return -1;
+        // }
+
+        // let mut permission = MapPermission::from_bits((port as u8) << 1).unwrap();
+        // permission.set(MapPermission::U, true);
+
+        // self.insert_framed_area(start_va, (start + len).into(), permission);
+        0
+    }
 }
 /// map area structure, controls a contiguous piece of virtual memory
+/// MapArea 翻译成段比较好
 pub struct MapArea {
     vpn_range: VPNRange,
     data_frames: BTreeMap<VirtPageNum, FrameTracker>,
@@ -339,6 +516,7 @@ impl MapArea {
             MapType::Identical => {
                 ppn = PhysPageNum(vpn.0);
             }
+            // 分配物理页号,并与虚拟页号匹配
             MapType::Framed => {
                 let frame = frame_alloc().unwrap();
                 ppn = frame.ppn;
@@ -421,6 +599,47 @@ bitflags! {
         ///Accessible in U mode
         const U = 1 << 4;
     }
+}
+
+/// Return (bottom, top) of a kernel stack in kernel space.
+/// 每个应用给两页空间 KERNEL_STACK_SIZE = 8192
+/// 这里是跳板
+///    top: fffffffffffff000
+/// bottom: ffffffffffffd000 应用 0  d000 - f000
+/// top: ffffffffffffc000    中间 c000 是空的
+/// bottom: ffffffffffffa000 应用 1  a000 - b000  
+/// top: ffffffffffff9000
+/// bottom: ffffffffffff7000   
+/// top: ffffffffffff6000
+/// bottom: ffffffffffff4000   
+/// top: ffffffffffff3000
+/// bottom: ffffffffffff1000   
+/// top: ffffffffffff0000
+/// bottom: fffffffffffee000   
+/// top: fffffffffffed000
+/// bottom: fffffffffffeb000   
+/// top: fffffffffffea000
+/// bottom: fffffffffffe8000   
+/// top: fffffffffffe7000
+/// bottom: fffffffffffe5000   
+/// top: fffffffffffe4000
+/// bottom: fffffffffffe2000   
+/// top: fffffffffffe1000
+/// bottom: fffffffffffdf000   
+/// top: fffffffffffde000
+/// bottom: fffffffffffdc000   
+/// top: fffffffffffdb000
+/// bottom: fffffffffffd9000   
+/// top: fffffffffffd8000
+/// bottom: fffffffffffd6000   
+/// top: fffffffffffd5000
+/// bottom: fffffffffffd3000   
+/// top: fffffffffffd2000
+/// bottom: fffffffffffd0000  
+pub fn kernel_stack_position(app_id: usize) -> (usize, usize) {
+    let top = TRAMPOLINE - app_id * (KERNEL_STACK_SIZE + PAGE_SIZE);
+    let bottom = top - KERNEL_STACK_SIZE;
+    (bottom, top)
 }
 
 /// remap test in kernel space
