@@ -136,7 +136,7 @@ impl TaskControlBlock {
                     program_brk: user_sp,
                     start_time: 0,
                     syscall_times: [0; MAX_SYSCALL_NUM],
-                    task_priority: 0, // Init by 0
+                    task_priority: 16, // Init by 0
                     task_stride: 0,
                 })
             },
@@ -234,6 +234,7 @@ impl TaskControlBlock {
     /// sys_set_priority
     pub fn sys_set_priority(self: &Arc<Self>, prio: isize) -> isize {
         let mut inner = self.inner_exclusive_access();
+        debug!("prio:{prio}");
         if prio >= 2 {
             inner.task_priority = prio as usize;
             prio
@@ -244,6 +245,7 @@ impl TaskControlBlock {
 
     /// spawn
     pub fn spawn(self: &Arc<Self>, elf_data: &[u8]) -> Arc<Self> {
+        debug!("in spawn");
         // memory_set with elf program headers/trampoline/trap context/user stack
         let (memory_set, user_sp, entry_point) = MemorySet::from_elf(elf_data);
         let trap_cx_ppn = memory_set
@@ -274,7 +276,7 @@ impl TaskControlBlock {
                     program_brk: user_sp,
                     start_time: 0,
                     syscall_times: [0; MAX_SYSCALL_NUM],
-                    task_priority: 0,
+                    task_priority: 16,
                     task_stride: 0,
                 })
             },
@@ -289,7 +291,7 @@ impl TaskControlBlock {
             kernel_stack_top,
             trap_handler as usize,
         );
-
+        debug!("out spawn , pid:{}", self.pid.0);
         task_control_block
     }
 

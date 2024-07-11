@@ -31,14 +31,31 @@ impl TaskManager {
         let len = self.ready_queue.len();
         let mut min_stride = 0;
         let mut min_stride_task = None;
+        debug!("len:{len}");
         for _ in 0..len {
             if let Some(current) = self.ready_queue.pop_front() {
+                debug!("current:{:?}", current.pid.0);
                 // min_stride = min_stride.min(current.inner_exclusive_access().task_stride);
                 // let current =current.inner_exclusive_access();
-                if min_stride > current.inner_exclusive_access().task_stride {
+                if min_stride >= current.inner_exclusive_access().task_stride {
                     min_stride = current.inner_exclusive_access().task_stride;
                     min_stride_task = Some(Arc::clone(&current));
                     self.ready_queue.push_back(current);
+                }
+            } else {
+                return None;
+            }
+        }
+        for _ in 0..len {
+            if let Some(current) = self.ready_queue.pop_front() {
+                debug!("current:{:?}", current.pid.0);
+                // min_stride = min_stride.min(current.inner_exclusive_access().task_stride);
+                // let current =current.inner_exclusive_access();
+                if min_stride == current.inner_exclusive_access().task_stride {
+                    return Some(current);
+                    // min_stride = current.inner_exclusive_access().task_stride;
+                    // min_stride_task = Some(Arc::clone(&current));
+                    // self.ready_queue.push_back(current);
                 }
             } else {
                 return None;

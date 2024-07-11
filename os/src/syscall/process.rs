@@ -263,7 +263,7 @@ pub fn sys_spawn(path: *const u8) -> isize {
 // 返回值：如果输入合法则返回 prio，否则返回 -1
 pub fn sys_set_priority(prio: isize) -> isize {
     trace!(
-        "kernel:pid[{}] sys_set_priority NOT IMPLEMENTED",
+        "kernel:pid[{}] sys_set_priority IMPLEMENTED",
         current_task().unwrap().pid.0
     );
     current_task().unwrap().sys_set_priority(prio)

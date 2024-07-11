@@ -39,10 +39,11 @@ pub use processor::{
 pub fn suspend_current_and_run_next() {
     // There must be an application running.
     // 之前因为不想切换一直执行,所以固定切换到当前任务
-    let task = fetch_min_task_stride().unwrap();
-
+    let task = current_task().unwrap();
+    debug!("run pid ={}", task.pid.0);
     // ---- access current TCB exclusively
     let mut task_inner = task.inner_exclusive_access();
+
     let task_cx_ptr = &mut task_inner.task_cx as *mut TaskContext;
     // Change status to Ready
     task_inner.task_status = TaskStatus::Ready;
