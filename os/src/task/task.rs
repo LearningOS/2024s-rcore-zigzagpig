@@ -292,6 +292,9 @@ impl TaskControlBlock {
             trap_handler as usize,
         );
         debug!("out spawn , pid:{}", self.pid.0);
+        self.inner_exclusive_access()
+            .children
+            .push(Arc::clone(&task_control_block));
         task_control_block
     }
 
