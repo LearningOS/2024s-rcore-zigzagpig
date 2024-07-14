@@ -19,9 +19,9 @@ impl TaskManager {
     }
     /// Add process back to ready queue
     pub fn add(&mut self, task: Arc<TaskControlBlock>) {
-        debug!("before: there are {} tasks", self.ready_queue.len());
+        // debug!("before: there are {} tasks", self.ready_queue.len());
         self.ready_queue.push_back(task);
-        debug!("after: there are {} tasks", self.ready_queue.len());
+        // debug!("after: there are {} tasks", self.ready_queue.len());
     }
     /// Take a process out of the ready queue
     pub fn fetch(&mut self) -> Option<Arc<TaskControlBlock>> {
