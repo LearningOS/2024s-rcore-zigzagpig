@@ -44,14 +44,16 @@ impl TaskManager {
     pub fn fetch_min_task_stride(&mut self) -> Option<Arc<TaskControlBlock>> {
         // let len = self.ready_queue.len();
         let mut index = 0;
+        let mut min_stride = usize::MAX;
         // if len == 0 {
         //     // panic!("fetch_min_task_stride, len == 0");
         // }
         // let mut min_stride_task = None;
         // debug!("fetch_min_task_stride in : {len} tasks");
 
-        for (i, tcb) in self.ready_queue.iter_mut().enumerate() {
-            if index >= tcb.inner_exclusive_access().task_stride {
+        for (i, tcb) in self.ready_queue.iter().enumerate() {
+            if min_stride >= tcb.inner_exclusive_access().task_stride {
+                min_stride = tcb.inner_exclusive_access().task_stride;
                 index = i;
             }
         }
