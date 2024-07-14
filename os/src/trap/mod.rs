@@ -62,7 +62,7 @@ pub fn trap_handler() -> ! {
     // trace!("into {:?}", scause.cause());
     match scause.cause() {
         Trap::Exception(Exception::UserEnvCall) => {
-            debug!("Trap::Exception(Exception::UserEnvCall) =>");
+            // debug!("Trap::Exception(Exception::UserEnvCall) =>");
             // jump to next instruction anyway
             let mut cx = current_trap_cx();
             cx.sepc += 4;
@@ -93,7 +93,7 @@ pub fn trap_handler() -> ! {
             exit_current_and_run_next(-3);
         }
         Trap::Interrupt(Interrupt::SupervisorTimer) => {
-            debug!("Trap::Interrupt(Interrupt::SupervisorTimer)");
+            // debug!("Trap::Interrupt(Interrupt::SupervisorTimer)");
             set_next_trigger();
             suspend_current_and_run_next();
         }

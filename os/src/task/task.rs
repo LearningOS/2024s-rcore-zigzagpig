@@ -229,10 +229,10 @@ impl TaskControlBlock {
         // **** access child PCB exclusively
         let trap_cx = task_control_block.inner_exclusive_access().get_trap_cx();
         trap_cx.kernel_sp = kernel_stack_top;
-        debug!(
-            "trap_cx: {:?}",
-            TaskContext::goto_trap_return(kernel_stack_top)
-        );
+        // debug!(
+        //     "trap_cx: {:?}",
+        //     TaskContext::goto_trap_return(kernel_stack_top)
+        // );
         // return
         task_control_block
         // **** release child PCB
@@ -242,7 +242,7 @@ impl TaskControlBlock {
     /// sys_set_priority
     pub fn sys_set_priority(self: &Arc<Self>, prio: isize) -> isize {
         let mut inner = self.inner_exclusive_access();
-        debug!("prio:{prio}");
+        // debug!("prio:{prio}");
         if prio >= 2 {
             inner.task_priority = prio as usize;
             prio
@@ -253,7 +253,7 @@ impl TaskControlBlock {
 
     /// spawn
     pub fn spawn(self: &Arc<Self>, elf_data: &[u8]) -> Arc<Self> {
-        debug!("in spawn");
+        // debug!("in spawn");
         // memory_set with elf program headers/trampoline/trap context/user stack
         let (memory_set, user_sp, entry_point) = MemorySet::from_elf(elf_data);
         let trap_cx_ppn = memory_set
@@ -299,11 +299,11 @@ impl TaskControlBlock {
             kernel_stack_top,
             trap_handler as usize,
         );
-        debug!("out spawn , pid:{}", self.pid.0);
-        debug!(
-            "trap_cx: {:?}",
-            TaskContext::goto_trap_return(kernel_stack_top)
-        );
+        // debug!("out spawn , pid:{}", self.pid.0);
+        // debug!(
+        //     "trap_cx: {:?}",
+        //     TaskContext::goto_trap_return(kernel_stack_top)
+        // );
         self.inner_exclusive_access()
             .children
             .push(Arc::clone(&task_control_block));
