@@ -150,10 +150,10 @@ impl TaskControlBlock {
             kernel_stack_top,
             trap_handler as usize,
         );
-        debug!(
-            "trap_cx: {:?}",
-            TaskContext::goto_trap_return(kernel_stack_top)
-        );
+        // debug!(
+        //     "trap_cx: {:?}",
+        //     TaskContext::goto_trap_return(kernel_stack_top)
+        // );
         task_control_block
     }
 
