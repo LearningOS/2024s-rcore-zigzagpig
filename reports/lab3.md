@@ -1,14 +1,9 @@
 # 简单总结你实现的功能（200字以内，不要贴代码）。
-## 第一版
-1. 文件`os/src/syscall/mod.rs` 在系统调用函数`syscall`入口处进行调用次数增加操作.
-2. 文件`os/src/syscall/process.rs`,导入外部引用`task::get_current_task_info`,获取任务信息,并转构造成`TaskInfo `类型
-3. 文件`os/src/task/mod.rs`,导入外部引用`use crate::config:: MAX_SYSCALL_NUM;`扩展`TaskControlBlock `用于初始化任务调用信息,`use crate::timer::get_time_ms;`分别在第一次调用系统函数和用系统调用获取相关信息时获取当前毫秒时间.实现两个供外部调用的函数`get_current_task_info()`和`increase_current_syscall_count()`,具体实现调用`TaskManager`的同名内部实现函数.
-4. 文件`os/src/task/task.rs`,扩展`TaskControlBlock `用于存储任务调用信息
 
 ## 第二版
-1. syscall 入口处调用 增加调用次数函数
-2. crate::task 中, 为 TaskManager 添加调用次数统计和初次调用时间字段,并实现这些字段的具体调用方法
-3. 使用 的 process 具体处理 syscall , 通过调用 crate::task 具体方法实现
+1. 实现 sys_spawn ，生成一个新任务，步骤跟生成新任务类似，需对父子进程关系进行额外处理
+2. 添加优先级相关字段，完成设置优先级函数
+3. 按优先级进行 task_stride 调度
 ---
 
 
@@ -115,5 +110,6 @@ ok!
 优点:通过代码可以非常深刻地理解操作系统的运行过程,希望一直办下去.
 
 缺点:
+- 测例较弱，调度算法完全不对也能通过测例
 - 代码量不大,但是理解的过程需要耗费大量的时间.主要是rCore-Tutorial-Guide-2024S文档提供的信息量不足,需要查不少额外的资料,后面发现 rCore-Tutorial-Book-v3 文档才顺利一些,有些时效过了也需要踩坑.
 - 在线视频清晰度不足.
