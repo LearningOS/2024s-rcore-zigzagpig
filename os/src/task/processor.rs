@@ -5,8 +5,7 @@
 //! and the replacement and transfer of control flow of different applications are executed.
 
 use super::__switch;
-#[allow(unused)]
-use super::{fetch_min_task_stride, fetch_task, TaskStatus};
+use super::{fetch_min_task_stride, TaskStatus};
 use super::{TaskContext, TaskControlBlock};
 use crate::sync::UPSafeCell;
 use crate::trap::TrapContext;

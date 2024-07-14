@@ -2,15 +2,14 @@
 use crate::trap::trap_return;
 
 #[repr(C)]
-#[derive(Debug)]
 /// task context structure containing some registers
 pub struct TaskContext {
     /// Ret position after task switching
-    pub ra: usize,
+    ra: usize,
     /// Stack pointer
-    pub sp: usize,
+    sp: usize,
     /// s0-11 register, callee saved
-    pub s: [usize; 12],
+    s: [usize; 12],
 }
 
 impl TaskContext {
