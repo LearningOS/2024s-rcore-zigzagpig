@@ -150,6 +150,10 @@ impl TaskControlBlock {
             kernel_stack_top,
             trap_handler as usize,
         );
+        debug!(
+            "trap_cx: {:?}",
+            TaskContext::goto_trap_return(kernel_stack_top)
+        );
         task_control_block
     }
 
@@ -225,6 +229,10 @@ impl TaskControlBlock {
         // **** access child PCB exclusively
         let trap_cx = task_control_block.inner_exclusive_access().get_trap_cx();
         trap_cx.kernel_sp = kernel_stack_top;
+        debug!(
+            "trap_cx: {:?}",
+            TaskContext::goto_trap_return(kernel_stack_top)
+        );
         // return
         task_control_block
         // **** release child PCB
@@ -292,6 +300,10 @@ impl TaskControlBlock {
             trap_handler as usize,
         );
         debug!("out spawn , pid:{}", self.pid.0);
+        debug!(
+            "trap_cx: {:?}",
+            TaskContext::goto_trap_return(kernel_stack_top)
+        );
         self.inner_exclusive_access()
             .children
             .push(Arc::clone(&task_control_block));

@@ -39,8 +39,9 @@ pub use processor::{
 pub fn suspend_current_and_run_next() {
     // There must be an application running.
     // 之前因为不想切换一直执行,所以固定切换到当前任务
-    let task = current_task().unwrap();
-    debug!("run pid ={}", task.pid.0);
+    // let task = current_task().unwrap();take_current_task
+    let task = take_current_task().unwrap();
+    debug!("suspend pid ={}", task.pid.0);
     // ---- access current TCB exclusively
     let mut task_inner = task.inner_exclusive_access();
 

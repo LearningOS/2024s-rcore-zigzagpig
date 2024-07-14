@@ -5,7 +5,8 @@
 //! and the replacement and transfer of control flow of different applications are executed.
 
 use super::__switch;
-use super::{fetch_task, TaskStatus};
+#[allow(unused)]
+use super::{fetch_min_task_stride, fetch_task, TaskStatus};
 use super::{TaskContext, TaskControlBlock};
 use crate::sync::UPSafeCell;
 use crate::trap::TrapContext;
@@ -54,13 +55,28 @@ lazy_static! {
 ///Loop `fetch_task` to get the process that needs to run, and switch the process through `__switch`
 pub fn run_tasks() {
     loop {
+        debug!("return to run_tasks");
         let mut processor = PROCESSOR.exclusive_access();
-        if let Some(task) = fetch_task() {
+        // if let Some(task) = fetch_min_task_stride()// fetch_task{
+        if let Some(task) = fetch_min_task_stride() {
             let idle_task_cx_ptr = processor.get_idle_task_cx_ptr();
+            debug!("idle_task_cx_ptr:{:?}", idle_task_cx_ptr);
+            unsafe {
+                debug!("idle_task_cx:{:?}", *idle_task_cx_ptr);
+                debug!("idle_task_cx.ra:{:x}", (*idle_task_cx_ptr).ra);
+            }
+            debug!("");
             // access coming task TCB exclusively
             let mut task_inner = task.inner_exclusive_access();
             let next_task_cx_ptr = &task_inner.task_cx as *const TaskContext;
             task_inner.task_status = TaskStatus::Running;
+
+            debug!("next_task_cx_ptr:{:?}", next_task_cx_ptr);
+            unsafe {
+                debug!("next_task_cx_ptr:{:?}", *next_task_cx_ptr);
+                debug!("next_task_cx_ptr.ra:{:x}", (*next_task_cx_ptr).ra);
+            }
+            debug!("");
             // release coming task_inner manually
             drop(task_inner);
             // release coming task TCB manually
@@ -70,9 +86,13 @@ pub fn run_tasks() {
             unsafe {
                 __switch(idle_task_cx_ptr, next_task_cx_ptr);
             }
+            debug!("out of fetch_task");
         } else {
             warn!("no tasks available in run_tasks");
+            panic!("no tasks available in run_tasks");
         }
+        debug!("out of run_tasks");
+        // panic!("first out of run_tasks");
     }
 }
 
@@ -104,8 +124,20 @@ pub fn current_trap_cx() -> &'static mut TrapContext {
 pub fn schedule(switched_task_cx_ptr: *mut TaskContext) {
     let mut processor = PROCESSOR.exclusive_access();
     let idle_task_cx_ptr = processor.get_idle_task_cx_ptr();
+    if let Some(tcb) = processor.current() {
+        debug!("processor id:{:?}", tcb.getpid());
+    }
+    debug!("idle_task_cx_ptr:{:x}", idle_task_cx_ptr as usize);
+    unsafe {
+        debug!("idle_task_cx:{:?}", *idle_task_cx_ptr);
+        debug!("idle_task_cx.ra:{:x}", (*idle_task_cx_ptr).ra);
+    }
+    debug!("");
+
     drop(processor);
+    debug!("before __switch:{:?}", "qqq");
     unsafe {
         __switch(switched_task_cx_ptr, idle_task_cx_ptr);
     }
+    debug!("after __switch:{:?}", "qqq");
 }
